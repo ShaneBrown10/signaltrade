@@ -1242,3 +1242,4 @@ export default function TradeIndicesApp() {
     </div>
   );
 }
+export default TradingDashboard;
