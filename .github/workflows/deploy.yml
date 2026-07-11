@@ -21,10 +21,10 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install react react-dom lucide-react vite @vitejs/plugin-react gh-pages --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: Build project
-        run: node_modules/.bin/vite build
+        run: npm run predeploy
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
