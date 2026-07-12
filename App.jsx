@@ -901,12 +901,14 @@ export default function TradeIndicesApp() {
         {page === "levels" && <LevelsPage active={active} marketData={marketData} />}
         {page === "signals" && <SignalsPage marketData={marketData} />}
 
-        <div className="mx-auto flex max-w-2xl items-center justify-center gap-2 px-4 pb-4 text-[11px] text-slate-600">
-          <Radio size={12} />
-          Connected to Twelve Data API Feed
-        </div>
-        <div className="mt-1 font-mono tracking-wide text-slate-700">
+        <div className="mx-auto flex flex-col items-center justify-center gap-2 px-4 pb-6 text-[11px] text-slate-600 text-center">
+          <div className="flex items-center gap-2">
+            <Radio size={12} />
+            Connected to Twelve Data API Feed
+          </div>
+          <div className="mt-1 font-mono tracking-wide text-slate-700">
             © {new Date().getFullYear()} Shane Brown. All rights reserved.
+          </div>
         </div>
       </main>
     </div>
