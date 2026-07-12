@@ -310,10 +310,42 @@ const CANDLES_4H = {
   ],
 };
 
+// Mock 10MIN candles — same JPN225 close ($68,557.73) so both timeframes
+// agree on "current price," but the swing/anchor/trigger structure is
+// compressed into realistic ~10-30pt intraday moves instead of ~800pt swings.
+const CANDLES_10MIN = {
+  JPN225: [
+    { time: "09:40", open: 68520, high: 68530, low: 68505, close: 68515 }, // Candle A (anchor)
+    { time: "09:50", open: 68515, high: 68520, low: 68490, close: 68498 },
+    { time: "10:00", open: 68498, high: 68505, low: 68470, close: 68480 }, // swing low
+    { time: "10:10", open: 68480, high: 68500, low: 68478, close: 68495 },
+    { time: "10:20", open: 68495, high: 68525, low: 68490, close: 68518 },
+    { time: "10:30", open: 68522, high: 68565, low: 68515, close: 68557.73 }, // breakout / trigger
+  ],
+};
+
+const CANDLES_BY_TIMEFRAME = {
+  "4HR": CANDLES_4H,
+  "10MIN": CANDLES_10MIN,
+};
+
+const TIMEFRAME_COPY = {
+  "4HR": {
+    triggerLabel: "4HR Bullish Overshadow confirmed — anchor candle body cleared",
+    patternName: "4HR Overshadow",
+  },
+  "10MIN": {
+    triggerLabel: "10MIN Momentum Trigger confirmed — anchor candle body cleared",
+    patternName: "10MIN Momentum Trigger",
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Strategy logic — Pine Script style "Confirmed Local Highs & Lows" +
 // dashboard sentiment filter. Pure functions of the data above, so if the
 // mock prices ever change, qualification and signals recompute automatically.
+// Timeframe-agnostic: the same fractal + overshadow rule runs against
+// whichever candle set (4HR or 10MIN) is passed in.
 // ---------------------------------------------------------------------------
 
 function getQualification(data) {
@@ -347,10 +379,11 @@ function getQualification(data) {
   return { status: "DISQUALIFIED", direction: null, reason: "Neutral structural bias — no directional edge" };
 }
 
-// Scans 4HR candles for a 3-candle local extreme (fractal) followed, within
-// the next 3 bars, by a candle whose full body clears the anchor candle's
-// body (the "Overshadow" breakout two bars before the fractal).
-function detectFourHourSignal(candles, direction) {
+// Scans candles (4HR or 10MIN — any timeframe) for a 3-candle local extreme
+// (fractal) followed, within the next 3 bars, by a candle whose full body
+// clears the anchor candle's body (the "Overshadow" breakout two bars before
+// the fractal).
+function detectOvershadowSignal(candles, direction) {
   if (!candles || candles.length < 4) return null;
 
   for (let i = 1; i < candles.length - 1; i++) {
@@ -999,11 +1032,12 @@ function CandlestickMini({ candles, signal }) {
   );
 }
 
-function SignalCard({ tickerKey }) {
+function SignalCard({ tickerKey, timeframe }) {
   const data = INDEX_DATA[tickerKey];
   const qual = getQualification(data);
-  const candles = CANDLES_4H[tickerKey];
-  const signal = qual.status === "QUALIFIED" && candles ? detectFourHourSignal(candles, qual.direction) : null;
+  const candles = CANDLES_BY_TIMEFRAME[timeframe][tickerKey];
+  const signal = qual.status === "QUALIFIED" && candles ? detectOvershadowSignal(candles, qual.direction) : null;
+  const copy = TIMEFRAME_COPY[timeframe];
 
   if (qual.status !== "QUALIFIED") {
     return (
@@ -1026,6 +1060,7 @@ function SignalCard({ tickerKey }) {
 
   const dirTheme = qual.direction === "BUY" ? BIAS_THEME.BULLISH : BIAS_THEME.BEARISH;
   const DirIcon = qual.direction === "BUY" ? TrendingUp : TrendingDown;
+  const riskDistance = signal ? Math.abs(signal.entry - signal.stopLoss) : null;
 
   return (
     <div className={`rounded-2xl border bg-gradient-to-b from-slate-900 to-slate-900/60 p-4 shadow-xl ${dirTheme.border} ${dirTheme.glow}`}>
@@ -1054,13 +1089,15 @@ function SignalCard({ tickerKey }) {
               <DirIcon size={22} strokeWidth={2.5} />
             </span>
             <div>
-              <div className={`text-2xl font-extrabold tracking-tight ${dirTheme.text}`}>{qual.direction} SIGNAL</div>
-              <p className="text-[11px] text-slate-500">4HR Bullish Overshadow confirmed — anchor candle body cleared</p>
+              <div className={`text-2xl font-extrabold tracking-tight ${dirTheme.text}`}>
+                {timeframe} {qual.direction} SIGNAL
+              </div>
+              <p className="text-[11px] text-slate-500">{copy.triggerLabel}</p>
             </div>
           </div>
 
           <div className="mt-4 rounded-xl border border-slate-800/80 bg-slate-950/50 p-3">
-            <CandlestickMini candles={CANDLES_4H[tickerKey]} signal={signal} />
+            <CandlestickMini candles={candles} signal={signal} />
             <div className="mt-2 flex items-center gap-4 text-[10px] text-slate-500">
               <span className="flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-amber-300" /> A · anchor candle
@@ -1069,14 +1106,16 @@ function SignalCard({ tickerKey }) {
                 <span className="h-2 w-2 rounded-full bg-slate-400" /> SL · swing low
               </span>
               <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" /> ▲ · overshadow trigger
+                <span className="h-2 w-2 rounded-full bg-emerald-400" /> ▲ · {timeframe === "4HR" ? "overshadow" : "momentum"} trigger
               </span>
             </div>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Entry (trigger close)</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                {timeframe === "4HR" ? "Entry (trigger close)" : "Scalp Entry"}
+              </span>
               <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-slate-100">{fmtPrice(signal.entry)}</div>
             </div>
             <div className="rounded-xl border border-rose-400/20 bg-rose-400/5 p-3">
@@ -1084,13 +1123,23 @@ function SignalCard({ tickerKey }) {
               <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-rose-400">{fmtPrice(signal.stopLoss)}</div>
             </div>
           </div>
+
+          <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-900/40 px-3 py-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {timeframe === "4HR" ? "Swing Range" : "Scalp Range"}
+            </span>
+            <span className="font-mono text-xs font-semibold tabular-nums text-slate-300">
+              {fmt(riskDistance, 2)} pts
+            </span>
+          </div>
+
           <p className="mt-2 text-[10px] text-slate-600">
             Stop set at the swing {qual.direction === "BUY" ? "low" : "high"} — the fractal level that invalidates this structure.
           </p>
         </>
       ) : (
         <p className="mt-3 text-xs text-slate-400">
-          Sentiment conditions are met, but no confirmed 4HR Overshadow breakout has printed yet — no trade triggered.
+          Sentiment conditions are met, but no confirmed {copy.patternName} breakout has printed yet — no trade triggered.
         </p>
       )}
     </div>
@@ -1098,23 +1147,40 @@ function SignalCard({ tickerKey }) {
 }
 
 function SignalsPage() {
+  const [timeframe, setTimeframe] = useState("4HR");
+
   return (
     <div className="mx-auto max-w-2xl px-4 pb-8">
       <div className="mb-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4">
-        <div className="flex items-center gap-2">
-          <Crosshair size={15} className="text-slate-400" />
-          <h2 className="text-sm font-semibold text-slate-100">Multi-Layer Signal Filter</h2>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Crosshair size={15} className="text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-100">Multi-Layer Signal Filter</h2>
+          </div>
+          <div className="flex shrink-0 items-center gap-1 rounded-full border border-slate-800/80 bg-slate-950/60 p-1">
+            {["4HR", "10MIN"].map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTimeframe(tf)}
+                className={`rounded-full px-3 py-1 text-[11px] font-bold tracking-wide transition-all ${
+                  timeframe === tf ? "bg-slate-100 text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {tf}
+              </button>
+            ))}
+          </div>
         </div>
-        <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">
+        <p className="mt-2.5 text-[12px] leading-relaxed text-slate-500">
           A ticker only qualifies for a BUY/SELL trigger search when its structural bias is directional (not Neutral) and
-          its sentiment probability sits strictly above 60%. Everything else is disqualified before any 4HR chart pattern
-          is even checked.
+          its sentiment probability sits strictly above 60%. Everything else is disqualified before any{" "}
+          {timeframe === "4HR" ? "4HR chart pattern" : "10MIN chart pattern"} is even checked.
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
         {ORDER.map((key) => (
-          <SignalCard key={key} tickerKey={key} />
+          <SignalCard key={key} tickerKey={key} timeframe={timeframe} />
         ))}
       </div>
 
