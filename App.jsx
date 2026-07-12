@@ -905,6 +905,9 @@ export default function TradeIndicesApp() {
           <Radio size={12} />
           Connected to Twelve Data API Feed
         </div>
+        <div className="mt-1 font-mono tracking-wide text-slate-700">
+            © {new Date().getFullYear()} Shane Brown. All rights reserved.
+        </div>
       </main>
     </div>
   );
