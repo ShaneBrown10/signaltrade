@@ -607,6 +607,7 @@ function LevelLadder({ data }) {
   );
 }
 
+// LevelsPage module definitions
 function LevelsPage({ active, marketData }) {
   const data = marketData[active];
   return (
@@ -785,8 +786,7 @@ export default function TradeIndicesApp() {
   useEffect(() => {
     const fetchLivePrices = async () => {
       try {
-        // Grab values dynamically from your Twelve Data profile basic tier
-        const apiKey = "YOUR_TWELVE_DATA_API_KEY";
+        const apiKey = "95930185850d4373b4322f36d612a15f";
         const symbols = "SPX,DJI,IXIC,FTSE"; 
         
         const response = await fetch(
@@ -797,26 +797,26 @@ export default function TradeIndicesApp() {
         setMarketData((prev) => {
           const next = { ...prev };
           
-          // Safely map and sync ticker payload feeds into state matrix
-          if (data.SPX) {
+          // Sync index price endpoints smoothly with current UI layouts
+          if (data.SPX && data.SPX.close) {
             next.SPX500.price = parseFloat(data.SPX.close);
-            next.SPX500.change = parseFloat(data.SPX.change);
-            next.SPX500.changePercent = parseFloat(data.SPX.percent_change);
+            next.SPX500.change = parseFloat(data.SPX.change || 0);
+            next.SPX500.changePercent = parseFloat(data.SPX.percent_change || 0);
           }
-          if (data.DJI) {
+          if (data.DJI && data.DJI.close) {
             next.US30.price = parseFloat(data.DJI.close);
-            next.US30.change = parseFloat(data.DJI.change);
-            next.US30.changePercent = parseFloat(data.DJI.percent_change);
+            next.US30.change = parseFloat(data.DJI.change || 0);
+            next.US30.changePercent = parseFloat(data.DJI.percent_change || 0);
           }
-          if (data.IXIC) {
+          if (data.IXIC && data.IXIC.close) {
             next.NAS100.price = parseFloat(data.IXIC.close);
-            next.NAS100.change = parseFloat(data.IXIC.change);
-            next.NAS100.changePercent = parseFloat(data.IXIC.percent_change);
+            next.NAS100.change = parseFloat(data.IXIC.change || 0);
+            next.NAS100.changePercent = parseFloat(data.IXIC.percent_change || 0);
           }
-          if (data.FTSE) {
+          if (data.FTSE && data.FTSE.close) {
             next.UK100.price = parseFloat(data.FTSE.close);
-            next.UK100.change = parseFloat(data.FTSE.change);
-            next.UK100.changePercent = parseFloat(data.FTSE.percent_change);
+            next.UK100.change = parseFloat(data.FTSE.change || 0);
+            next.UK100.changePercent = parseFloat(data.FTSE.percent_change || 0);
           }
           
           return next;
@@ -828,7 +828,7 @@ export default function TradeIndicesApp() {
 
     fetchLivePrices();
     
-    // Refresh every 60 seconds to protect your free tier limits (Max 8 requests/min)
+    // Auto refresh cycle mapped every 60 seconds
     const interval = setInterval(fetchLivePrices, 60000); 
     return () => clearInterval(interval);
   }, []);
